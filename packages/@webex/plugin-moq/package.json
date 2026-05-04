@@ -1,0 +1,27 @@
+{
+  "name": "@webex/plugin-moq",
+  "version": "0.1.0",
+  "description": "Webex JS SDK plugin for Media over QUIC (MoQ) webinar subscription",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "devMain": "src/index.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/webex/webex-js-sdk.git",
+    "directory": "packages/@webex/plugin-moq"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@webex/webex-core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "echo 'tests pending'"
+  }
+}

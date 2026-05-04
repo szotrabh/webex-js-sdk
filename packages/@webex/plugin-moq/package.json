@@ -19,12 +19,16 @@
   },
   "devDependencies": {
     "@types/jest": "^29.0.0",
+    "@webex/babel-config-legacy": "workspace:*",
+    "@webex/eslint-config-legacy": "workspace:*",
+    "@webex/legacy-tools": "workspace:*",
     "jest": "^29.0.0",
     "ts-jest": "^29.0.0",
     "typescript": "^5.0.0"
   },
   "scripts": {
     "build": "tsc",
+    "build:src": "webex-legacy-tools build -dest \"./dist\" -src \"./src\" -js -ts -maps",
     "test": "jest",
     "test:unit": "jest test/unit"
   }

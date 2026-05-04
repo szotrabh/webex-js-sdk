@@ -15,6 +15,10 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@web-moq/core": "file:../../../../moq-web/packages/core",
+    "@web-moq/media": "file:../../../../moq-web/packages/media",
+    "@web-moq/msf": "file:../../../../moq-web/packages/msf",
+    "@web-moq/session": "file:../../../../moq-web/packages/session",
     "@webex/webex-core": "workspace:*"
   },
   "devDependencies": {

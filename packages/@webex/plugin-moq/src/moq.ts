@@ -142,7 +142,9 @@ class MoqPlugin extends TypedEventEmitter implements IMoqPlugin {
 
       const bridge = new StreamBridge();
 
-      this.transition({status: 'connected', transport, session, bridge});
+      const connected: ConnectedState = {status: 'connected', transport, session, bridge};
+      this.transition(connected);
+      this.wireMediaEvents(connected);
     } catch (err) {
       const moqErr = new MoqError(MoqErrorType.CONNECTION_FAILED, 'Connection failed', err);
       this.transition({status: 'error', lastError: moqErr});
@@ -158,8 +160,6 @@ class MoqPlugin extends TypedEventEmitter implements IMoqPlugin {
     const {namespace, tracks} = options;
     const mediaConfig = this.buildMediaConfig(options.mediaConfig);
     const trackSubscriptionIds: number[] = [];
-
-    this.wireMediaEvents(connected);
 
     let catalogManager: CatalogManager | null = null;
 

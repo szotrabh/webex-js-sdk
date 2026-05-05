@@ -18,10 +18,12 @@
     "@web-moq/core": "file:../../../../moq-web/packages/core",
     "@web-moq/media": "file:../../../../moq-web/packages/media",
     "@web-moq/msf": "file:../../../../moq-web/packages/msf",
+    "@web-moq/secure-objects": "file:../../../../moq-web/packages/secure-objects",
     "@web-moq/session": "file:../../../../moq-web/packages/session"
   },
   "devDependencies": {
     "@types/jest": "^29.0.0",
+    "@webex/legacy-tools": "workspace:*",
     "jest": "^29.0.0",
     "ts-jest": "^29.0.0",
     "typescript": "^5.0.0"

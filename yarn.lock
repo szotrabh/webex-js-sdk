@@ -7097,6 +7097,51 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@web-moq/core@file:../moq-web/packages/core::locator=webex-js-sdk%40workspace%3A.":
+  version: 0.1.0
+  resolution: "@web-moq/core@file:../moq-web/packages/core#../moq-web/packages/core::hash=ac02c6&locator=webex-js-sdk%40workspace%3A."
+  checksum: 9e8bf1ac27946fcb427b74fb84ec1636e59018e7a606ce5cd66c2a99430b43d908046999fb19e2e591263e4eb7420e867f32a207e8312f70835491b5f762b15d
+  languageName: node
+  linkType: hard
+
+"@web-moq/media@file:../moq-web/packages/media::locator=webex-js-sdk%40workspace%3A.":
+  version: 0.1.0
+  resolution: "@web-moq/media@file:../moq-web/packages/media#../moq-web/packages/media::hash=4e12d2&locator=webex-js-sdk%40workspace%3A."
+  dependencies:
+    "@web-moq/core": "workspace:*"
+    "@web-moq/secure-objects": "workspace:*"
+    "@web-moq/session": "workspace:*"
+  checksum: 72a26b3cfe587c3852f170bc97d6f6a7174370413ba8f8a017e01f1cd42bfee3657a5c5e18406515f78e45095549585e726d46c7b9d7af662c9ff5a398b7d07e
+  languageName: node
+  linkType: hard
+
+"@web-moq/msf@file:../moq-web/packages/msf::locator=webex-js-sdk%40workspace%3A.":
+  version: 0.1.0
+  resolution: "@web-moq/msf@file:../moq-web/packages/msf#../moq-web/packages/msf::hash=7e0621&locator=webex-js-sdk%40workspace%3A."
+  dependencies:
+    "@web-moq/core": "workspace:*"
+    "@web-moq/session": "workspace:*"
+    zod: ^3.23.0
+  checksum: 588c08dfde41d144130e0648fa1ccde7b2968dada15f32df970d74b933d2767e59f73cf76875e927051f7853929143ab9b69ceed8c52c3d93386cdf7f0565901
+  languageName: node
+  linkType: hard
+
+"@web-moq/secure-objects@file:../moq-web/packages/secure-objects::locator=webex-js-sdk%40workspace%3A.":
+  version: 0.1.0
+  resolution: "@web-moq/secure-objects@file:../moq-web/packages/secure-objects#../moq-web/packages/secure-objects::hash=a22810&locator=webex-js-sdk%40workspace%3A."
+  checksum: 8711caca7432f46a5d71dd68f9a5dd941deac4121dbd4044a5101b8f288948d498008abda93a879434645001d79bb946b9e728c81f4c6123aa2bedddc3b45cec
+  languageName: node
+  linkType: hard
+
+"@web-moq/session@file:../moq-web/packages/session::locator=webex-js-sdk%40workspace%3A.":
+  version: 0.1.0
+  resolution: "@web-moq/session@file:../moq-web/packages/session#../moq-web/packages/session::hash=13c1a3&locator=webex-js-sdk%40workspace%3A."
+  dependencies:
+    "@web-moq/core": "workspace:*"
+  checksum: 6b1773c4d981565b85f7ed66a26aa6fa13cc954461a98520a617333a2986d5547174e61313e5d193b7bb3545b490fe3c47a117fd65af63da791dd4d3c7a4a971
+  languageName: node
+  linkType: hard
+
 "@web/config-loader@npm:^0.3.0":
   version: 0.3.3
   resolution: "@web/config-loader@npm:0.3.3"
@@ -9069,10 +9114,12 @@ __metadata:
   resolution: "@webex/plugin-moq@workspace:packages/@webex/plugin-moq"
   dependencies:
     "@types/jest": ^29.0.0
-    "@webex/babel-config-legacy": "workspace:*"
-    "@webex/eslint-config-legacy": "workspace:*"
+    "@web-moq/core": "file:../../../../moq-web/packages/core"
+    "@web-moq/media": "file:../../../../moq-web/packages/media"
+    "@web-moq/msf": "file:../../../../moq-web/packages/msf"
+    "@web-moq/secure-objects": "file:../../../../moq-web/packages/secure-objects"
+    "@web-moq/session": "file:../../../../moq-web/packages/session"
     "@webex/legacy-tools": "workspace:*"
-    "@webex/webex-core": "workspace:*"
     jest: ^29.0.0
     ts-jest: ^29.0.0
     typescript: ^5.0.0
@@ -35650,6 +35697,13 @@ __metadata:
   version: 3.23.8
   resolution: "zod@npm:3.23.8"
   checksum: 15949ff82118f59c893dacd9d3c766d02b6fa2e71cf474d5aa888570c469dbf5446ac5ad562bb035bf7ac9650da94f290655c194f4a6de3e766f43febd432c5c
+  languageName: node
+  linkType: hard
+
+"zod@npm:^3.23.0":
+  version: 3.25.76
+  resolution: "zod@npm:3.25.76"
+  checksum: c9a403a62b329188a5f6bd24d5d935d2bba345f7ab8151d1baa1505b5da9f227fb139354b043711490c798e91f3df75991395e40142e6510a4b16409f302b849
   languageName: node
   linkType: hard
 

@@ -81,7 +81,12 @@
   },
   "resolutions": {
     "@webex/json-multistream": "2.4.3",
-    "pkijs/asn1js": "3.0.10"
+    "pkijs/asn1js": "3.0.10",
+    "@web-moq/core": "file:../moq-web/packages/core",
+    "@web-moq/media": "file:../moq-web/packages/media",
+    "@web-moq/msf": "file:../moq-web/packages/msf",
+    "@web-moq/session": "file:../moq-web/packages/session",
+    "@web-moq/secure-objects": "file:../moq-web/packages/secure-objects"
   },
   "devDependencies": {
     "@babel/cli": "^7.17.10",

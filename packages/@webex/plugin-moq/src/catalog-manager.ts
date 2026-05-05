@@ -1,5 +1,5 @@
-/* eslint-disable require-jsdoc */
 import {EventEmitter} from 'events';
+import {createMSFSession} from '@web-moq/msf';
 
 export interface DiscoveredTrack {
   name: string;
@@ -13,20 +13,52 @@ export interface DiscoveredTrack {
   channelConfig?: string;
   bitrate?: number;
   renderGroup?: number;
-  raw: any;
+  raw: MsfRawTrack | null;
 }
 
-type MsfSessionFactory = (session: any, namespace: string[], config?: any) => any;
+export interface MsfRawTrack {
+  codec?: string;
+  width?: number;
+  height?: number;
+  framerate?: number;
+  samplerate?: number;
+  channelConfig?: string;
+  bitrate?: number;
+  renderGroup?: number;
+  [key: string]: unknown;
+}
 
-function defaultMsfSessionFactory(session: any, namespace: string[], config?: any): any {
-  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-  const {createMSFSession} = require('@web-moq/msf');
+interface MsfTrackInfo {
+  name: string;
+  namespace: string[];
+  track: MsfRawTrack;
+}
 
-  return createMSFSession(session, namespace, config);
+interface MsfSession {
+  subscribeCatalog(
+    onCatalog: (catalog: unknown) => void,
+    onError: (error: Error) => void
+  ): Promise<void>;
+  findVideoTracks(): MsfTrackInfo[];
+  findAudioTracks(): MsfTrackInfo[];
+}
+
+export type MsfSessionFactory = (
+  session: unknown,
+  namespace: string[],
+  config?: unknown
+) => MsfSession;
+
+function defaultMsfSessionFactory(
+  session: unknown,
+  namespace: string[],
+  config?: unknown
+): MsfSession {
+  return createMSFSession(session, namespace, config) as MsfSession;
 }
 
 export class CatalogManager extends EventEmitter {
-  private msfSession: any = null;
+  private msfSession: MsfSession | null = null;
   private discoveredTracks: DiscoveredTrack[] = [];
   private createMsfSession: MsfSessionFactory;
 
@@ -35,11 +67,11 @@ export class CatalogManager extends EventEmitter {
     this.createMsfSession = msfSessionFactory ?? defaultMsfSessionFactory;
   }
 
-  async start(moqtSession: any, namespace: string[]): Promise<void> {
+  async start(moqtSession: unknown, namespace: string[]): Promise<void> {
     this.msfSession = this.createMsfSession(moqtSession, namespace);
 
     await this.msfSession.subscribeCatalog(
-      (catalog: any) => {
+      (catalog: unknown) => {
         this.handleCatalog(catalog);
       },
       (error: Error) => {
@@ -48,9 +80,9 @@ export class CatalogManager extends EventEmitter {
     );
   }
 
-  private handleCatalog(_catalog: any): void {
-    const videoTracks = this.msfSession.findVideoTracks();
-    const audioTracks = this.msfSession.findAudioTracks();
+  private handleCatalog(_catalog: unknown): void {
+    const videoTracks = this.msfSession!.findVideoTracks();
+    const audioTracks = this.msfSession!.findAudioTracks();
 
     const discovered: DiscoveredTrack[] = [];
 

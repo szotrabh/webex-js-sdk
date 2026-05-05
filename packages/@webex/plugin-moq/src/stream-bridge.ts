@@ -2,20 +2,29 @@ export interface TrackEntry {
   subscriptionId: number;
   trackName: string;
   kind: 'video' | 'audio';
-  generator: any;
-  writer: any;
+  generator: MediaStreamTrackGenerator;
+  writer: WritableStreamDefaultWriter<VideoFrame | AudioData>;
   stream: MediaStream;
 }
 
-type GeneratorFactory = (opts: {kind: string}) => any;
-type MediaStreamFactory = (tracks: any[]) => MediaStream;
-
-function defaultGeneratorFactory(opts: {kind: string}): any {
-  return new (globalThis as any).MediaStreamTrackGenerator(opts);
+interface MediaStreamTrackGenerator {
+  readonly writable: WritableStream<VideoFrame | AudioData>;
+  stop(): void;
 }
 
-function defaultMediaStreamFactory(tracks: any[]): MediaStream {
-  return new MediaStream(tracks);
+export type GeneratorFactory = (opts: {kind: string}) => MediaStreamTrackGenerator;
+export type MediaStreamFactory = (tracks: MediaStreamTrackGenerator[]) => MediaStream;
+
+function defaultGeneratorFactory(options: {kind: string}): MediaStreamTrackGenerator {
+  return new (
+    globalThis as {
+      MediaStreamTrackGenerator: new (opts: {kind: string}) => MediaStreamTrackGenerator;
+    }
+  ).MediaStreamTrackGenerator(options);
+}
+
+function defaultMediaStreamFactory(tracks: MediaStreamTrackGenerator[]): MediaStream {
+  return new MediaStream(tracks as unknown as MediaStreamTrack[]);
 }
 
 export class StreamBridge {

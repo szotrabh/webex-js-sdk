@@ -1,195 +1,388 @@
-/* eslint-disable require-jsdoc */
-// @ts-nocheck — WebexPlugin uses AmpersandState which lacks TS types
-import {WebexPlugin} from '@webex/webex-core';
+import {EventEmitter} from 'events';
 import {MOQTransport} from '@web-moq/core';
 import {MediaSession} from '@web-moq/media';
-import {CatalogManager} from './catalog-manager';
+import {CatalogManager, DiscoveredTrack} from './catalog-manager';
 import {StreamBridge} from './stream-bridge';
+import {MoqError, MoqErrorType} from './errors';
+import {AsyncQueue} from './async-queue';
+import type {
+  IMoqPlugin,
+  MoqConnectionState,
+  MoqEventMap,
+  MoqEventName,
+  MoqSubscribeOptions,
+  MoqSubscriptionResult,
+  MoqPublishOptions,
+  MoqPublishResult,
+  MoqPublishConfig,
+  MoqMediaConfig,
+  MoqPluginConfig,
+} from './types';
 
-let subscriptionCounter = 0;
+// ---------------------------------------------------------------------------
+// Discriminated union for internal connection state
+// ---------------------------------------------------------------------------
 
-function nextSubscriptionId() {
-  subscriptionCounter += 1;
-
-  return `moq-sub-${subscriptionCounter}`;
+interface DisconnectedState {
+  status: 'disconnected';
 }
 
-const MoqPlugin = WebexPlugin.extend({
-  namespace: 'Moq',
+interface ConnectingState {
+  status: 'connecting';
+}
 
-  session: {
-    connectionState: {
-      type: 'string',
-      default: 'disconnected',
-      values: ['disconnected', 'connecting', 'connected', 'error'],
-    },
-  },
+interface ConnectedState {
+  status: 'connected';
+  transport: MOQTransport;
+  session: MediaSession;
+  bridge: StreamBridge;
+}
 
-  _transport: null,
-  _mediaSession: null,
-  _catalogManager: null,
-  _streamBridge: null,
-  _eventCleanups: null,
-  _activeSubscriptions: null,
+interface ErrorState {
+  status: 'error';
+  lastError: MoqError;
+}
 
-  async connect(relayUrl) {
-    if (this.connectionState === 'connected') {
-      throw new Error('Already connected');
+type PluginState = DisconnectedState | ConnectingState | ConnectedState | ErrorState;
+
+// ---------------------------------------------------------------------------
+// Internal tracking
+// ---------------------------------------------------------------------------
+
+interface ActiveSubscription {
+  catalogManager: CatalogManager | null;
+  trackSubscriptionIds: number[];
+}
+
+interface ActivePublication {
+  trackAlias: bigint;
+  trackName: string;
+  namespace: string[];
+  stream: MediaStream;
+}
+
+// ---------------------------------------------------------------------------
+// Typed emitter setup
+// ---------------------------------------------------------------------------
+
+type TypedEmitter = {
+  on<E extends MoqEventName>(event: E, handler: MoqEventMap[E]): void;
+  off<E extends MoqEventName>(event: E, handler: MoqEventMap[E]): void;
+  emit<E extends MoqEventName>(event: E, ...args: Parameters<MoqEventMap[E]>): boolean;
+  removeAllListeners(event?: MoqEventName): void;
+};
+
+const TypedEventEmitter = EventEmitter as unknown as new () => TypedEmitter;
+
+// ---------------------------------------------------------------------------
+// MoqPlugin
+// ---------------------------------------------------------------------------
+
+class MoqPlugin extends TypedEventEmitter implements IMoqPlugin {
+  private _state: PluginState = {status: 'disconnected'};
+  private _eventCleanups: Array<() => void> = [];
+  private _subscriptions = new Map<string, ActiveSubscription>();
+  private _publications = new Map<string, ActivePublication>();
+  private _pluginConfig: MoqPluginConfig | null = null;
+  private _queue = new AsyncQueue();
+  private _subCounter = 0;
+  private _pubCounter = 0;
+
+  get connectionState(): MoqConnectionState {
+    return this._state.status;
+  }
+
+  configure(config: Partial<MoqPluginConfig>): void {
+    this._pluginConfig = config as MoqPluginConfig;
+  }
+
+  async connect(relayUrl: string): Promise<void> {
+    return this._queue.push(() => this._connect(relayUrl));
+  }
+
+  async subscribe(options: MoqSubscribeOptions): Promise<MoqSubscriptionResult> {
+    return this._queue.push(() => this._subscribe(options));
+  }
+
+  async unsubscribe(id: string): Promise<void> {
+    return this._queue.push(() => this._unsubscribe(id));
+  }
+
+  async publish(options: MoqPublishOptions): Promise<MoqPublishResult> {
+    return this._queue.push(() => this._publish(options));
+  }
+
+  async unpublish(id: string): Promise<void> {
+    return this._queue.push(() => this._unpublish(id));
+  }
+
+  async disconnect(): Promise<void> {
+    return this._queue.push(() => this._disconnect());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Queued operation implementations
+  // ---------------------------------------------------------------------------
+
+  private async _connect(relayUrl: string): Promise<void> {
+    if (this._state.status === 'connected') {
+      throw new MoqError(MoqErrorType.ALREADY_CONNECTED, 'Already connected');
     }
 
-    this.connectionState = 'connecting';
-    this.trigger('state:changed', {state: 'connecting'});
+    this.transition({status: 'connecting'});
 
     try {
-      const timeout = this.config?.connection?.connectionTimeout ?? 10000;
+      const timeout = this._pluginConfig?.connection?.connectionTimeout ?? 10_000;
 
-      this._transport = new MOQTransport({connectionTimeout: timeout});
-      await this._transport.connect(relayUrl);
+      const transport = new MOQTransport({connectionTimeout: timeout});
+      await transport.connect(relayUrl);
 
-      this._mediaSession = new MediaSession(this._transport);
-      await this._mediaSession.setup();
+      const session = new MediaSession(transport);
+      await session.setup();
 
-      this._streamBridge = new StreamBridge();
-      this._activeSubscriptions = new Map();
-      this._eventCleanups = [];
+      const bridge = new StreamBridge();
 
-      this.connectionState = 'connected';
-      this.trigger('state:changed', {state: 'connected'});
+      this.transition({status: 'connected', transport, session, bridge});
     } catch (err) {
-      this.connectionState = 'error';
-      this.trigger('state:changed', {state: 'error'});
-      this.trigger('error', {error: err, context: 'connect'});
+      const moqErr = new MoqError(MoqErrorType.CONNECTION_FAILED, 'Connection failed', err);
+      this.transition({status: 'error', lastError: moqErr});
+      this.emitError(MoqErrorType.CONNECTION_FAILED, 'Connection failed', err);
       throw err;
     }
-  },
+  }
 
-  async subscribe(options) {
-    if (this.connectionState !== 'connected') {
-      throw new Error('Not connected. Call connect() first.');
+  private async _subscribe(options: MoqSubscribeOptions): Promise<MoqSubscriptionResult> {
+    const connected = this.requireConnected();
+
+    const subId = this.nextSubscriptionId();
+    const {namespace, tracks} = options;
+    const mediaConfig = this.buildMediaConfig(options.mediaConfig);
+    const trackSubscriptionIds: number[] = [];
+
+    this.wireMediaEvents(connected);
+
+    let catalogManager: CatalogManager | null = null;
+
+    if (tracks) {
+      const discovered: DiscoveredTrack[] = tracks.map((t) => ({
+        name: t.name,
+        namespace,
+        kind: t.kind,
+        raw: null,
+      }));
+      await this.subscribeToTracks(connected, subId, discovered, mediaConfig, trackSubscriptionIds);
+    } else {
+      catalogManager = new CatalogManager();
+      catalogManager.on('tracks-discovered', (discovered: DiscoveredTrack[]) => {
+        this.subscribeToTracks(connected, subId, discovered, mediaConfig, trackSubscriptionIds);
+      });
+      await catalogManager.start(connected.session, namespace);
     }
 
-    const subId = nextSubscriptionId();
-    const {namespace} = options;
-    const mediaConfig = this._buildMediaConfig(options.mediaConfig);
-
-    this._catalogManager = new CatalogManager();
-
-    this._catalogManager.on('tracks-discovered', (tracks) => {
-      const subscribeTrack = async (track) => {
-        try {
-          const moqSubId = await this._mediaSession.subscribe(
-            track.namespace,
-            track.name,
-            mediaConfig,
-            track.kind
-          );
-
-          const entry = this._streamBridge.addTrack(moqSubId, track.kind, track.name);
-
-          this.trigger('track:added', {
-            subscriptionId: subId,
-            trackName: track.name,
-            mediaStream: entry.stream,
-            kind: track.kind,
-          });
-        } catch (err) {
-          this.trigger('error', {error: err, context: `subscribe-track:${track.name}`});
-        }
-      };
-
-      Promise.all(tracks.map(subscribeTrack));
-    });
-
-    const unsubVideoFrame = this._mediaSession.on('video-frame', ({subscriptionId, frame}) => {
-      this._streamBridge.writeFrame(subscriptionId, frame);
-    });
-
-    this._eventCleanups.push(unsubVideoFrame);
-
-    const unsubAudioData = this._mediaSession.on('audio-data', ({subscriptionId, audioData}) => {
-      this._streamBridge.writeFrame(subscriptionId, audioData);
-    });
-
-    this._eventCleanups.push(unsubAudioData);
-
-    const unsubError = this._mediaSession.on('error', (err) => {
-      this.trigger('error', {error: err, context: 'media-session'});
-    });
-
-    this._eventCleanups.push(unsubError);
-
-    await this._catalogManager.start(this._mediaSession, namespace);
-
-    const result = {
-      id: subId,
-      streams: this._streamBridge.getAllStreams(),
-    };
-
-    this._activeSubscriptions.set(subId, {
-      catalogManager: this._catalogManager,
-    });
-
-    return result;
-  },
-
-  async unsubscribe(id) {
-    const sub = this._activeSubscriptions?.get(id);
-
-    if (!sub) return;
-
-    sub.catalogManager.stop();
-    this._activeSubscriptions.delete(id);
-
-    if (this._streamBridge) {
-      await this._streamBridge.removeAll();
-    }
-  },
-
-  async disconnect() {
-    if (this._eventCleanups) {
-      for (const cleanup of this._eventCleanups) {
-        cleanup();
-      }
-      this._eventCleanups = [];
-    }
-
-    if (this._catalogManager) {
-      this._catalogManager.stop();
-      this._catalogManager = null;
-    }
-
-    if (this._streamBridge) {
-      await this._streamBridge.removeAll();
-      this._streamBridge = null;
-    }
-
-    if (this._mediaSession) {
-      await this._mediaSession.close();
-      this._mediaSession = null;
-    }
-
-    if (this._transport) {
-      await this._transport.close();
-      this._transport = null;
-    }
-
-    this._activeSubscriptions = null;
-    this.connectionState = 'disconnected';
-    this.trigger('state:changed', {state: 'disconnected'});
-  },
-
-  _buildMediaConfig(overrides) {
-    const defaults = this.config?.media ?? {};
+    this._subscriptions.set(subId, {catalogManager, trackSubscriptionIds});
 
     return {
-      videoBitrate: defaults.videoBitrate ?? 2000000,
-      audioBitrate: defaults.audioBitrate ?? 128000,
-      videoResolution: defaults.videoResolution ?? '720p',
-      jitterBufferDelay: defaults.jitterBufferDelay ?? 50,
-      enableStats: defaults.enableStats ?? false,
+      id: subId,
+      streams: connected.bridge.getAllStreams(),
+    };
+  }
+
+  private async _unsubscribe(id: string): Promise<void> {
+    const sub = this._subscriptions.get(id);
+    if (!sub) return;
+
+    sub.catalogManager?.stop();
+    this._subscriptions.delete(id);
+
+    if (this._state.status === 'connected') {
+      await this._state.bridge.removeAll();
+    }
+  }
+
+  private async _publish(options: MoqPublishOptions): Promise<MoqPublishResult> {
+    const connected = this.requireConnected();
+
+    const pubId = this.nextPublicationId();
+    const {namespace, trackName, stream} = options;
+    const publishConfig = this.buildPublishConfig(options.mediaConfig);
+
+    const trackAlias = await connected.session.publish(namespace, trackName, stream, publishConfig);
+
+    this._publications.set(pubId, {trackAlias, trackName, namespace, stream});
+
+    this.emit('publishing', {id: pubId, trackName, trackAlias});
+
+    return {id: pubId, trackAlias};
+  }
+
+  private async _unpublish(id: string): Promise<void> {
+    const pub = this._publications.get(id);
+    if (!pub) return;
+
+    if (this._state.status === 'connected') {
+      await this._state.session.unpublish(pub.trackAlias);
+    }
+    this._publications.delete(id);
+  }
+
+  private async _disconnect(): Promise<void> {
+    for (const cleanup of this._eventCleanups) {
+      cleanup();
+    }
+    this._eventCleanups = [];
+
+    for (const [, sub] of this._subscriptions) {
+      sub.catalogManager?.stop();
+    }
+    this._subscriptions.clear();
+
+    await Promise.all(
+      [...this._publications.keys()].map((id) => this._unpublish(id).catch(() => {}))
+    );
+    this._publications.clear();
+
+    if (this._state.status === 'connected') {
+      const {bridge, session, transport} = this._state;
+      await bridge.removeAll();
+      await session.close();
+      await transport.close();
+    }
+
+    this.transition({status: 'disconnected'});
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  private requireConnected(): ConnectedState {
+    if (this._state.status !== 'connected') {
+      throw new MoqError(MoqErrorType.NOT_CONNECTED, 'Not connected. Call connect() first.');
+    }
+
+    return this._state;
+  }
+
+  private async subscribeToTracks(
+    connected: ConnectedState,
+    subId: string,
+    tracks: DiscoveredTrack[],
+    mediaConfig: MoqMediaConfig,
+    trackSubscriptionIds: number[]
+  ): Promise<void> {
+    const results = await Promise.allSettled(
+      tracks.map((track) => this.subscribeToSingleTrack(connected, subId, track, mediaConfig))
+    );
+
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value !== undefined) {
+        trackSubscriptionIds.push(result.value);
+      }
+    }
+  }
+
+  private async subscribeToSingleTrack(
+    connected: ConnectedState,
+    subId: string,
+    track: DiscoveredTrack,
+    mediaConfig: MoqMediaConfig
+  ): Promise<number> {
+    const moqSubId = await connected.session.subscribe(
+      track.namespace,
+      track.name,
+      mediaConfig,
+      track.kind
+    );
+
+    const entry = connected.bridge.addTrack(moqSubId, track.kind, track.name);
+
+    this.emit('track:added', {
+      subscriptionId: subId,
+      trackName: track.name,
+      mediaStream: entry.stream,
+      kind: track.kind,
+    });
+
+    return moqSubId;
+  }
+
+  private wireMediaEvents(connected: ConnectedState): void {
+    const unsubVideoFrame = connected.session.on(
+      'video-frame',
+      ({subscriptionId, frame}: {subscriptionId: number; frame: VideoFrame}) => {
+        connected.bridge.writeFrame(subscriptionId, frame);
+      }
+    );
+    this._eventCleanups.push(unsubVideoFrame);
+
+    const unsubAudioData = connected.session.on(
+      'audio-data',
+      ({subscriptionId, audioData}: {subscriptionId: number; audioData: AudioData}) => {
+        connected.bridge.writeFrame(subscriptionId, audioData);
+      }
+    );
+    this._eventCleanups.push(unsubAudioData);
+
+    const unsubError = connected.session.on('error', (err: Error) => {
+      this.emitError(MoqErrorType.MEDIA_SESSION_ERROR, 'Media session error', err);
+    });
+    this._eventCleanups.push(unsubError);
+  }
+
+  private buildPublishConfig(overrides?: Partial<MoqPublishConfig>): MoqPublishConfig {
+    const defaults = this._pluginConfig?.media;
+
+    return {
+      videoBitrate: defaults?.videoBitrate ?? 2_000_000,
+      audioBitrate: defaults?.audioBitrate ?? 128_000,
+      videoResolution: defaults?.videoResolution ?? '720p',
+      jitterBufferDelay: defaults?.jitterBufferDelay ?? 50,
+      enableStats: defaults?.enableStats ?? false,
+      keyframeInterval: 1,
+      deliveryTimeout: 5000,
+      priority: 128,
+      deliveryMode: 'stream',
+      audioDeliveryMode: 'datagram',
+      videoEnabled: true,
+      audioEnabled: true,
       ...overrides,
     };
-  },
-});
+  }
+
+  private buildMediaConfig(overrides?: Partial<MoqMediaConfig>): MoqMediaConfig {
+    const defaults = this._pluginConfig?.media;
+
+    return {
+      videoBitrate: defaults?.videoBitrate ?? 2_000_000,
+      audioBitrate: defaults?.audioBitrate ?? 128_000,
+      videoResolution: defaults?.videoResolution ?? '720p',
+      jitterBufferDelay: defaults?.jitterBufferDelay ?? 50,
+      enableStats: defaults?.enableStats ?? false,
+      ...overrides,
+    };
+  }
+
+  private transition(next: PluginState): void {
+    this._state = next;
+    this.emit('state:changed', {state: next.status});
+  }
+
+  private emitError(type: MoqErrorType, message: string, cause?: unknown): void {
+    const error = new MoqError(type, message, cause);
+    this.emit('error', {error, context: type});
+  }
+
+  private nextSubscriptionId(): string {
+    this._subCounter += 1;
+
+    return `moq-sub-${this._subCounter}`;
+  }
+
+  private nextPublicationId(): string {
+    this._pubCounter += 1;
+
+    return `moq-pub-${this._pubCounter}`;
+  }
+}
 
 export default MoqPlugin;

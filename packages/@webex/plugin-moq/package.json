@@ -18,14 +18,10 @@
     "@web-moq/core": "file:../../../../moq-web/packages/core",
     "@web-moq/media": "file:../../../../moq-web/packages/media",
     "@web-moq/msf": "file:../../../../moq-web/packages/msf",
-    "@web-moq/session": "file:../../../../moq-web/packages/session",
-    "@webex/webex-core": "workspace:*"
+    "@web-moq/session": "file:../../../../moq-web/packages/session"
   },
   "devDependencies": {
     "@types/jest": "^29.0.0",
-    "@webex/babel-config-legacy": "workspace:*",
-    "@webex/eslint-config-legacy": "workspace:*",
-    "@webex/legacy-tools": "workspace:*",
     "jest": "^29.0.0",
     "ts-jest": "^29.0.0",
     "typescript": "^5.0.0"

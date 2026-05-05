@@ -9069,6 +9069,9 @@ __metadata:
   resolution: "@webex/plugin-moq@workspace:packages/@webex/plugin-moq"
   dependencies:
     "@types/jest": ^29.0.0
+    "@webex/babel-config-legacy": "workspace:*"
+    "@webex/eslint-config-legacy": "workspace:*"
+    "@webex/legacy-tools": "workspace:*"
     "@webex/webex-core": "workspace:*"
     jest: ^29.0.0
     ts-jest: ^29.0.0

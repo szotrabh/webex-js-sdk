@@ -113,11 +113,14 @@ describe('CatalogManager', () => {
     });
 
     it('identifies audio tracks by samplerate', async () => {
-      const onTracks = jest.fn();
-      manager.on('tracks-discovered', onTracks);
+      const audioOnlyMock = makeMockMsfSession([audioTrack]);
+      const audioManager = new CatalogManager(() => audioOnlyMock as any);
 
-      await manager.start({} as any, ['webinar', 'session-1']);
-      mockMsfSession._fireCatalog({version: 1, tracks: [audioTrack]}, true);
+      const onTracks = jest.fn();
+      audioManager.on('tracks-discovered', onTracks);
+
+      await audioManager.start({} as any, ['webinar', 'session-1']);
+      audioOnlyMock._fireCatalog({version: 1, tracks: [audioTrack]}, true);
 
       const tracks: DiscoveredTrack[] = onTracks.mock.calls[0][0];
       expect(tracks[0].kind).toBe('audio');

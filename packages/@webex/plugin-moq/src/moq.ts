@@ -1,6 +1,6 @@
 import {EventEmitter} from 'events';
-import {MOQTransport} from '@web-moq/core';
-import {MediaSession} from '@web-moq/media';
+import {MOQTransport} from '@moq-web/core';
+import {MediaSession} from '@moq-web/media';
 import {CatalogManager, DiscoveredTrack} from './catalog-manager';
 import {StreamBridge} from './stream-bridge';
 import {MoqError, MoqErrorType} from './errors';
@@ -176,7 +176,7 @@ class MoqPlugin extends TypedEventEmitter implements IMoqPlugin {
       catalogManager.on('tracks-discovered', (discovered: DiscoveredTrack[]) => {
         this.subscribeToTracks(connected, subId, discovered, mediaConfig, trackSubscriptionIds);
       });
-      await catalogManager.start(connected.session, namespace);
+      await catalogManager.start(connected.session.getMOQTSession(), namespace);
     }
 
     this._subscriptions.set(subId, {catalogManager, trackSubscriptionIds});

@@ -17,7 +17,7 @@ export type MediaStreamFactory = (tracks: MediaStreamTrackGenerator[]) => MediaS
 
 function defaultGeneratorFactory(options: {kind: string}): MediaStreamTrackGenerator {
   return new (
-    globalThis as {
+    globalThis as unknown as {
       MediaStreamTrackGenerator: new (opts: {kind: string}) => MediaStreamTrackGenerator;
     }
   ).MediaStreamTrackGenerator(options);

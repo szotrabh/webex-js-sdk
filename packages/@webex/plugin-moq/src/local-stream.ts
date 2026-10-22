@@ -13,7 +13,7 @@ export interface LocalStream {
   on(event: 'output-track-change', handler: (track: MediaStreamTrack) => void): void;
   on(event: 'user-mute-state-change', handler: (muted: boolean) => void): void;
   on(event: 'stream-ended', handler: () => void): void;
-  off(event: string, handler: (...args: unknown[]) => void): void;
+  off(event: string, handler: (...args: never[]) => void): void;
 }
 
 export interface LocalVideoStream extends LocalStream {

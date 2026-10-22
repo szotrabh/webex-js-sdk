@@ -1,5 +1,6 @@
 import {EventEmitter} from 'events';
-import {createMSFSession} from '@web-moq/msf';
+import {createMSFSession, type MSFSessionConfig} from '@moq-web/msf';
+import type {MOQTSession} from '@moq-web/session';
 
 export interface DiscoveredTrack {
   name: string;
@@ -44,15 +45,15 @@ interface MsfSession {
 }
 
 export type MsfSessionFactory = (
-  session: unknown,
+  session: MOQTSession,
   namespace: string[],
-  config?: unknown
+  config?: MSFSessionConfig
 ) => MsfSession;
 
 function defaultMsfSessionFactory(
-  session: unknown,
+  session: MOQTSession,
   namespace: string[],
-  config?: unknown
+  config?: MSFSessionConfig
 ): MsfSession {
   return createMSFSession(session, namespace, config) as MsfSession;
 }
@@ -67,7 +68,7 @@ export class CatalogManager extends EventEmitter {
     this.createMsfSession = msfSessionFactory ?? defaultMsfSessionFactory;
   }
 
-  async start(moqtSession: unknown, namespace: string[]): Promise<void> {
+  async start(moqtSession: MOQTSession, namespace: string[]): Promise<void> {
     this.msfSession = this.createMsfSession(moqtSession, namespace);
 
     await this.msfSession.subscribeCatalog(

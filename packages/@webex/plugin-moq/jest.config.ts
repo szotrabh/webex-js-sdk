@@ -6,9 +6,9 @@ export default {
     '^.+\\.tsx?$': ['ts-jest', {diagnostics: false}],
   },
   moduleNameMapper: {
-    '^@web-moq/core$': '<rootDir>/test/__mocks__/@web-moq/core.ts',
-    '^@web-moq/media$': '<rootDir>/test/__mocks__/@web-moq/media.ts',
-    '^@web-moq/msf$': '<rootDir>/test/__mocks__/@web-moq/msf.ts',
+    '^@moq-web/core$': '<rootDir>/test/__mocks__/@moq-web/core.ts',
+    '^@moq-web/media$': '<rootDir>/test/__mocks__/@moq-web/media.ts',
+    '^@moq-web/msf$': '<rootDir>/test/__mocks__/@moq-web/msf.ts',
     '^@webex/webex-core$': '<rootDir>/test/__mocks__/@webex/webex-core.ts',
   },
 };

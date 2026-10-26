@@ -81,13 +81,7 @@
   },
   "resolutions": {
     "@webex/json-multistream": "2.4.3",
-    "pkijs/asn1js": "3.0.10",
-    "@moq-web/cat": "file:../moq-web/packages/cat",
-    "@moq-web/core": "file:../moq-web/packages/core",
-    "@moq-web/media": "file:../moq-web/packages/media",
-    "@moq-web/msf": "file:../moq-web/packages/msf",
-    "@moq-web/session": "file:../moq-web/packages/session",
-    "@moq-web/secure-objects": "file:../moq-web/packages/secure-objects"
+    "pkijs/asn1js": "3.0.10"
   },
   "devDependencies": {
     "@babel/cli": "^7.17.10",

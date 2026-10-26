@@ -15,12 +15,12 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@moq-web/cat": "file:../../../../moq-web/packages/cat",
-    "@moq-web/core": "file:../../../../moq-web/packages/core",
-    "@moq-web/media": "file:../../../../moq-web/packages/media",
-    "@moq-web/msf": "file:../../../../moq-web/packages/msf",
-    "@moq-web/secure-objects": "file:../../../../moq-web/packages/secure-objects",
-    "@moq-web/session": "file:../../../../moq-web/packages/session"
+    "@moq-web/cat": "0.2.0-alpha.0",
+    "@moq-web/core": "0.2.0-alpha.0",
+    "@moq-web/media": "0.2.0-alpha.0",
+    "@moq-web/msf": "0.2.0-alpha.0",
+    "@moq-web/secure-objects": "0.2.0-alpha.0",
+    "@moq-web/session": "0.2.0-alpha.0"
   },
   "devDependencies": {
     "@types/jest": "^29.0.0",
